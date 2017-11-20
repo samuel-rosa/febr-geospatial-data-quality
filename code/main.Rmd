@@ -1,0 +1,51 @@
+---
+title: "Untitled"
+author: "Alessandro Samuel-Rosa"
+date: "17 November 2017"
+output: html_document
+---
+
+```{r}
+library(sp)
+library(magrittr)
+library(dplyr)
+library(ggmap)
+library(ggplot2)
+```
+
+
+```{r}
+url <- "https://raw.githubusercontent.com/samuel-rosa/dnos-sm-rs-general/master/data/gcpData.csv"
+destfile <- tempfile(fileext = ".csv")
+download.file(url = url, destfile = destfile)
+gcp <- 
+  read.csv(destfile, sep = '\t') %>% 
+  dplyr::filter(source == "field")
+```
+
+```{r}
+coordinates(gcp) <- ~ x + y
+proj4string(gcp) <- CRS("+proj=utm +zone=22 +south +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs")
+gcp <- spTransform(x = gcp, CRSobj = "+proj=longlat +ellps=WGS84")
+plot(gcp)
+```
+
+```{r}
+bb <- bbox(gcp)
+bb[1, ] <- extendrange(bb[1, ], f = 0.4)
+bb[2, ] <- extendrange(bb[2, ], f = 0.4)
+map <- 
+  get_map(location = bb, maptype = "satellite") %>% 
+  ggmap() +
+  xlab("Longitude (°)") +
+  ylab("Latitude (°)") + 
+  theme(axis.text.x = element_text(color = "black"), axis.text.y = element_text(color = "black")) +
+  geom_point(aes(x = x, y = y, colour = "red"), data = as.data.frame(gcp@coords), show.legend = FALSE)
+```
+
+```{r}
+png("../res/fig/santa-maria.png", width = 480 * 4, height = 480 * 4, res = 72 * 8)
+map
+dev.off()
+```
+
