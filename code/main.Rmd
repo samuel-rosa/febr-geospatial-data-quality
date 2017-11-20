@@ -11,6 +11,11 @@ library(magrittr)
 library(dplyr)
 library(ggmap)
 library(ggplot2)
+library(febr)
+library(pedometrics)
+library(mapview)
+library(sf)
+library(grid)
 ```
 
 
@@ -35,17 +40,96 @@ bb <- bbox(gcp)
 bb[1, ] <- extendrange(bb[1, ], f = 0.4)
 bb[2, ] <- extendrange(bb[2, ], f = 0.4)
 map <- 
-  get_map(location = bb, maptype = "satellite") %>% 
+  get_map(location = bb, maptype = "hybrid") %>% 
   ggmap() +
   xlab("Longitude (°)") +
   ylab("Latitude (°)") + 
   theme(axis.text.x = element_text(color = "black"), axis.text.y = element_text(color = "black")) +
   geom_point(aes(x = x, y = y, colour = "red"), data = as.data.frame(gcp@coords), show.legend = FALSE)
+map
 ```
 
 ```{r}
 png("../res/fig/santa-maria.png", width = 480 * 4, height = 480 * 4, res = 72 * 8)
 map
+grid.text("A", x = unit(0.05, "npc"), y = unit(0.96, "npc"))
 dev.off()
+```
+
+Conjunto de dados da 'VI Reunião de Correlação, Classificação e Aplicação de Levantamentos de Solos RS/SC/PR'
+
+```{r}
+ctb0643 <- 
+  read.csv('../data/ctb0643-observacao.csv', dec = ',', stringsAsFactors = FALSE) %>% 
+  select(siteID = observacao_id, coord_y, coord_x)
+ctb0643
+```
+
+There is an identification error in the dataset (Perfil-10 and Perfil-11) 
+
+```{r}
+gps <- 
+  read.csv('../data/VIRCC-GPS-Edgar.csv', dec = ',', stringsAsFactors = FALSE) %>% 
+  select(siteID = observacao_id, coord_y, coord_x)
+gps$siteID[10] <- 'Perfil-11'
+gps$siteID[11] <- 'Perfil-10'
+gps
+```
+
+```{r}
+ctb0643 <- 
+  ctb0643 %>% 
+  dplyr::filter(siteID %in% gps$siteID)
+ctb0643
+```
+
+```{r}
+coordinates(ctb0643) <- ~ coord_x + coord_y
+proj4string(ctb0643) <- '+proj=longlat +ellps=WGS84'
+ctb0643 <- spTransform(ctb0643, CRS('+proj=utm +zone=22 +south +ellps=WGS84 +datum=WGS84 +units=m +no_defs'))
+
+coordinates(gps) <- ~ coord_x + coord_y
+proj4string(gps) <- '+proj=longlat +ellps=WGS84'
+
+bb <- bbox(gps)
+map <- 
+  get_map(location = bb, maptype = "hybrid", zoom = 6) %>% 
+  ggmap() +
+  xlab("Longitude (°)") +
+  ylab("Latitude (°)") + 
+  theme(axis.text.x = element_text(color = "black"), axis.text.y = element_text(color = "black")) +
+  geom_point(aes(x = coord_x, y = coord_y, colour = "red"), data = as.data.frame(gps@coords), 
+             show.legend = FALSE)
+map
+```
+
+```{r}
+png("../res/fig/rcc.png", width = 480 * 4, height = 480 * 4, res = 72 * 8)
+map
+grid.text("B", x = unit(0.05, "npc"), y = unit(0.96, "npc"))
+dev.off()
+```
+
+```{r}
+gps <- spTransform(gps, CRS('+proj=utm +zone=22 +south +ellps=WGS84 +datum=WGS84 +units=m +no_defs'))
+
+tmp <- 
+  rbind(ctb0643, gps) %>%
+  st_as_sf() %>% 
+  mutate(col = rep(c('red', 'blue'), each = nrow(gps)))
+mapview(tmp, color = tmp$col)
+```
+
+
+```{r}
+error_stats <- 
+  gcpDiff(measured = gps, predicted = ctb0643) %>% 
+  select(siteID, dx, dy, module, azimuth)
+error_stats
+```
+
+
+```{r}
+write.csv(error_stats, '../res/tab/webservice-validation.csv')
 ```
 
