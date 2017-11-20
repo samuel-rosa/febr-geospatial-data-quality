@@ -112,7 +112,9 @@ dev.off()
 
 ```{r}
 gps <- spTransform(gps, CRS('+proj=utm +zone=22 +south +ellps=WGS84 +datum=WGS84 +units=m +no_defs'))
+```
 
+```{r}
 tmp <- 
   rbind(ctb0643, gps) %>%
   st_as_sf() %>% 
@@ -120,14 +122,15 @@ tmp <-
 mapview(tmp, color = tmp$col)
 ```
 
-
 ```{r}
 error_stats <- 
   gcpDiff(measured = gps, predicted = ctb0643) %>% 
-  select(siteID, dx, dy, module, azimuth)
+  select(siteID, abs.dx, abs.dy, module) %>% 
+  arrange(siteID)
+error_stats$siteID <- gsub('Perfil-', '', error_stats$siteID)
+colnames(error_stats) <- c('Profile ID', 'x-coord (m)', 'y-coord (m)', 'Error vector (m)')
 error_stats
 ```
-
 
 ```{r}
 write.csv(error_stats, '../res/tab/webservice-validation.csv')
