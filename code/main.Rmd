@@ -69,7 +69,7 @@ There is an identification error in the dataset (Perfil-10 and Perfil-11)
 
 ```{r}
 gps <- 
-  read.csv('../data/VIRCC-GPS-Edgar.csv', dec = ',', stringsAsFactors = FALSE) %>% 
+  read.csv('../data/VIRCC-GPS.csv', dec = ',', stringsAsFactors = FALSE) %>% 
   select(siteID = observacao_id, coord_y, coord_x)
 gps$siteID[10] <- 'Perfil-11'
 gps$siteID[11] <- 'Perfil-10'
